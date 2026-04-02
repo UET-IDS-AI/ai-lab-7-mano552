@@ -17,54 +17,12 @@ def accuracy_score(y_true, y_pred):
     """
     return float(np.mean(y_true == y_pred))
 
-
 # =========================
 # Q1 Naive Bayes
 # =========================
 
 def naive_bayes_mle_spam():
-    """
-    Implement Naive Bayes spam classification using simple MLE.
-
-    Use the dataset below:
-
-    texts = [
-        "win money now",
-        "limited offer win cash",
-        "cheap meds available",
-        "win big prize now",
-        "exclusive offer buy now",
-        "cheap pills buy cheap meds",
-        "win lottery claim prize",
-        "urgent offer win money",
-        "free cash bonus now",
-        "buy meds online cheap",
-        "meeting schedule tomorrow",
-        "project discussion meeting",
-        "please review the report",
-        "team meeting agenda today",
-        "project deadline discussion",
-        "review the project document",
-        "schedule a meeting tomorrow",
-        "please send the report",
-        "discussion on project update",
-        "team sync meeting notes"
-    ]
-
-    labels = np.array([
-        1,1,1,1,1,1,1,1,1,1,
-        0,0,0,0,0,0,0,0,0,0
-    ])
-
-    Predict the class of:
-        test_email = "win cash prize now"
-
-    Returns
-    -------
-    priors : dict
-    word_probs : dict
-    prediction : int
-    """
+    
     texts = [
         "win money now",
         "limited offer win cash",
@@ -95,17 +53,57 @@ def naive_bayes_mle_spam():
 
     test_email = "win cash prize now"
 
-    # TODO: tokenize the texts
+    # 1. Tokenization
+    tokenized_texts = [text.split() for text in texts]
 
-    # TODO: build vocabulary
+    # 2. Vocabulary
+    vocab = set()
+    for tokens in tokenized_texts:
+        vocab.update(tokens)
+    vocab = list(vocab)
 
-    # TODO: compute class priors
+    # 3. Class priors
+    priors = {}
+    total_docs = len(labels)
+    for c in [0, 1]:
+        priors[c] = np.sum(labels == c) / total_docs
 
-    # TODO: compute word probabilities using simple MLE (no smoothing)
+    # 4. Word probabilities (MLE, no smoothing)
+    word_probs = {0: {}, 1: {}}
 
-    # TODO: predict the class of test_email
+    for c in [0, 1]:
+        # collect all words in class c
+        words_in_class = []
+        for tokens, label in zip(tokenized_texts, labels):
+            if label == c:
+                words_in_class.extend(tokens)
 
-    raise NotImplementedError
+        total_words = len(words_in_class)
+
+        for word in vocab:
+            count = words_in_class.count(word)
+            if total_words > 0:
+                word_probs[c][word] = count / total_words
+            else:
+                word_probs[c][word] = 0
+
+    # 5. Prediction
+    test_tokens = test_email.split()
+
+    scores = {}
+
+    for c in [0, 1]:
+        score = priors[c]
+        for word in test_tokens:
+            if word in word_probs[c]:
+                score *= word_probs[c][word]
+            else:
+                score *= 0  # unseen word → 0 probability
+        scores[c] = score
+
+    prediction = max(scores, key=scores.get)
+
+    return priors, word_probs, prediction
 
 
 # =========================
@@ -113,32 +111,47 @@ def naive_bayes_mle_spam():
 # =========================
 
 def knn_iris(k=3, test_size=0.2, seed=0):
-    """
-    Implement KNN from scratch on the Iris dataset.
 
-    Steps:
-    1. Load Iris data
-    2. Split into train/test
-    3. Compute Euclidean distance
-    4. Predict with majority voting
-    5. Return train accuracy, test accuracy, and test predictions
+    # 1. Load dataset
+    iris = load_iris()
+    X = iris.data
+    y = iris.target
 
-    Returns
-    -------
-    train_accuracy : float
-    test_accuracy : float
-    predictions : np.ndarray
-    """
-    # TODO: load iris dataset
+    # 2. Train-test split
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
 
-    # TODO: split into train and test
+    # 3. Euclidean distance function
+    def euclidean_distance(a, b):
+        return np.sqrt(np.sum((a - b) ** 2))
 
-    # TODO: implement Euclidean distance
+    # 4. KNN prediction function
+    def predict(X_train, y_train, x_test, k):
+        distances = []
 
-    # TODO: implement prediction using k nearest neighbors
+        for i in range(len(X_train)):
+            dist = euclidean_distance(X_train[i], x_test)
+            distances.append((dist, y_train[i]))
 
-    # TODO: compute train predictions and test predictions
+        # sort by distance
+        distances.sort(key=lambda x: x[0])
 
-    # TODO: compute accuracies
+        # get k nearest
+        k_neighbors = distances[:k]
 
-    raise NotImplementedError
+        labels = [label for _, label in k_neighbors]
+
+        # majority vote
+        values, counts = np.unique(labels, return_counts=True)
+        return values[np.argmax(counts)]
+
+    # 5. Predictions
+    y_train_pred = np.array([predict(X_train, y_train, x, k) for x in X_train])
+    y_test_pred = np.array([predict(X_train, y_train, x, k) for x in X_test])
+
+    # 6. Accuracy
+    train_accuracy = accuracy_score(y_train, y_train_pred)
+    test_accuracy = accuracy_score(y_test, y_test_pred)
+
+    return train_accuracy, test_accuracy, y_test_pred
